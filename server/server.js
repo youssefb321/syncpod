@@ -1,17 +1,32 @@
 import express from "express";
-import { db, getUsers } from "./db.js";
+import { db, registerUser } from "./db.js";
+import cors from "cors";
+import bodyParser from "body-parser";
 
 const app = express();
 const port = 5000;
 
-app.use(express.json());
+app.use(bodyParser.json());
+app.use(cors({ origin: "http://localhost:3000" }));
 
 app.get("/", (req, res) => {
-  getUsers((err, users) => {
+  console.log("/");
+});
+
+app.get("/register", (req, res) => {
+  console.log("register");
+});
+
+app.post("/register", (req, res) => {
+  const { email, password } = req.body;
+  console.log("Received registration request: ", email);
+
+  registerUser(email, password, (err, user) => {
     if (err) {
-      res.status(500).json({ error: "Database error" });
+      res.status(500).json({ error: "Failed to register user" });
+      return;
     } else {
-      res.json(users);
+      res.status(200).json({ message: "User registered successfully", user });
     }
   });
 });
