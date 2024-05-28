@@ -26,6 +26,7 @@ const Register = () => {
 
     if (formData.password !== formData.confirmPassword) {
       setMessage("Passwords do not match!");
+      return;
     }
 
     try {
@@ -36,7 +37,10 @@ const Register = () => {
       setMessage(response.data.message);
     } catch (err) {
       console.error("Error: ", err);
-      setMessage("An error occurred while registering.");
+      console.error("Error: ", err.response?.data?.message);
+      setMessage(
+        err.response?.data?.message || "An error occurred while registering."
+      );
     }
   };
 

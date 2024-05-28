@@ -1,5 +1,5 @@
 import express from "express";
-import { db, registerUser } from "./db.js";
+import { db, registerUser, emailExists } from "./db.js";
 import cors from "cors";
 import bodyParser from "body-parser";
 
@@ -21,12 +21,29 @@ app.post("/register", (req, res) => {
   const { email, password } = req.body;
   console.log("Received registration request: ", email);
 
-  registerUser(email, password, (err, user) => {
+  emailExists(email, (err, rows) => {
     if (err) {
-      res.status(500).json({ error: "Failed to register user" });
+      console.error("Failed to check Email.");
+      return;
+    } else if (rows >= 1) {
+      console.log("Rows: ", rows);
+      console.log("false");
+      res.status(400).json({ message: "email already exists" });
       return;
     } else {
-      res.status(200).json({ message: "User registered successfully", user });
+      console.log("Rows: ", rows);
+      console.log("true");
+      registerUser(email, password, (err, user) => {
+        if (err) {
+          res.status(500).json({ error: "Failed to register user" });
+          return;
+        } else {
+          res
+            .status(200)
+            .json({ message: "User registered successfully", user });
+        }
+      });
+      return;
     }
   });
 });

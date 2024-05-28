@@ -5,8 +5,22 @@ sqlite3.verbose();
 
 const db = new sqlite3.Database("./syncpod.db");
 
+const emailExists = (email, callback) => {
+  const query = "SELECT COUNT(*) AS count FROM users WHERE email = ?";
+
+  db.get(query, email, (err, row) => {
+    if (err) {
+      console.error("Could not query database: ", err);
+      callback(err);
+    } else {
+      callback(null, row.count);
+    }
+  });
+};
+
 const registerUser = async (email, password, callback) => {
   const saltRounds = 10;
+
   try {
     console.log("hashing password...");
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -29,4 +43,4 @@ const registerUser = async (email, password, callback) => {
   }
 };
 
-export { db, registerUser };
+export { db, registerUser, emailExists };
