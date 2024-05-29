@@ -22,12 +22,8 @@ const registerUser = async (email, password, callback) => {
   const saltRounds = 10;
 
   try {
-    console.log("hashing password...");
     const hashedPassword = await bcrypt.hash(password, saltRounds);
-    console.log("password hashed: ", hashedPassword);
-
     const query = "INSERT INTO users (email, hash) VALUES(?, ?)";
-    console.log("Inserting into database...");
 
     db.run(query, [email, hashedPassword], function (err) {
       if (err) {
@@ -43,4 +39,35 @@ const registerUser = async (email, password, callback) => {
   }
 };
 
-export { db, registerUser, emailExists };
+const getUserByEmail = (email, callback) => {
+  const query = "SELECT * FROM users WHERE email = ?";
+
+  db.get(query, [email], (err, row) => {
+    if (err) {
+      console.error("User does not exist: ", err);
+      callback(err);
+    } else {
+      callback(null, row);
+    }
+  });
+};
+
+const checkLoginpassword = (email, loginPassword, callback) => {
+  getUserByEmail(email, (err, user) => {
+    if (err) {
+      callback(err);
+    } else if (user) {
+      bcrypt.compare(loginPassword, user.hash, (err, isMatch) => {
+        if (err) {
+          callback(err);
+        } else {
+          callback(null, isMatch);
+        }
+      });
+    } else {
+      callback(null, false);
+    }
+  });
+};
+
+export { db, registerUser, emailExists, checkLoginpassword };

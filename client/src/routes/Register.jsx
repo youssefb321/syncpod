@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import Navbar from "./Navbar";
+import Navbar from "../components/Navbar";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -10,6 +11,7 @@ const Register = () => {
   });
 
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -26,6 +28,7 @@ const Register = () => {
 
     if (formData.password !== formData.confirmPassword) {
       setMessage("Passwords do not match!");
+      return;
     }
 
     try {
@@ -34,9 +37,12 @@ const Register = () => {
         password: formData.password,
       });
       setMessage(response.data.message);
+      navigate("/");
     } catch (err) {
-      console.error("Error: ", err);
-      setMessage("An error occurred while registering.");
+      console.error("Error: ", err.response?.data?.message);
+      setMessage(
+        err.response?.data?.message || "An error occurred while registering."
+      );
     }
   };
 
