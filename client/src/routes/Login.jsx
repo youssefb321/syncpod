@@ -39,9 +39,17 @@ const Login = () => {
     } catch (err) {
       console.error("Error: ", err.response?.data?.message);
       setMessage(
-        err.response?.data?.message || "An error occured while logging in."
+        err.response?.data?.message || "An error occurred while logging in."
       );
     }
+  };
+
+  const handleGoogleLogin = async () => {
+    window.location.href = "http://localhost:5000/auth/google";
+  };
+
+  const handleFacebookLogin = async () => {
+    window.location.href = "http://localhost:5000/auth/facebook/callback";
   };
 
   return (
@@ -64,34 +72,54 @@ const Login = () => {
                 className="mt-2 p-2 w-full border rounded focus:outline-none focus:ring focus:border-blue-300"
                 required
               />
-              <div className="mb-4">
-                <label htmlFor="password" className="block text-gray-700">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="mt-2 p-2 w-full border rounded focus:outline-none focus:ring focus:border-blue-300"
-                />
-              </div>
-              <div>
-                <button
-                  type="submit"
-                  className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition-colors"
-                >
-                  Login
-                </button>
-                {message && (
-                  <div className="mt-2 text-center text-sm text-red-600">
-                    {message}
-                  </div>
-                )}
-              </div>
+            </div>
+            <div className="mb-4">
+              <label htmlFor="password" className="block text-gray-700">
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                className="mt-2 p-2 w-full border rounded focus:outline-none focus:ring focus:border-blue-300"
+                required
+              />
+            </div>
+            <div>
+              <button
+                type="submit"
+                className="w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition-colors"
+              >
+                Login
+              </button>
+              {message && (
+                <div className="mt-2 text-center text-sm text-red-600">
+                  {message}
+                </div>
+              )}
             </div>
           </form>
+          <div className="flex items-center my-4">
+            <div className="flex-grow border-t border-gray-300"></div>
+            <span className="mx-4 text-gray-500">or</span>
+            <div className="flex-grow border-t border-gray-300"></div>
+          </div>
+          <div>
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition-colors mb-2"
+            >
+              Login with Google
+            </button>
+            <button
+              onClick={handleFacebookLogin}
+              className="w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-800 transition-colors"
+            >
+              Login with Facebook
+            </button>
+          </div>
         </div>
       </div>
     </>

@@ -8,6 +8,8 @@ import bcrypt from "bcrypt";
 import sqlite3 from "sqlite3";
 import env from "dotenv";
 import connectSqlite3 from "connect-sqlite3";
+import GoogleStrategy from "passport-google-oauth20";
+import FacebookStrategy from "passport-facebook";
 
 const app = express();
 const port = 5000;
@@ -71,6 +73,116 @@ passport.use(
   })
 );
 
+passport.use(
+  "google",
+  new GoogleStrategy(
+    {
+      clientID: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      callbackURL: "http://localhost:5000/auth/google/callback",
+      userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
+    },
+    async (accessToken, refreshToken, profile, cb) => {
+      console.log(profile);
+
+      try {
+        const user = await new Promise((resolve, reject) => {
+          db.get(
+            "SELECT * FROM users WHERE email = ?",
+            [profile.emails[0].value],
+            (err, row) => {
+              if (err) {
+                console.error("Could not query database:", err);
+                reject(err);
+              } else {
+                resolve(row);
+              }
+            }
+          );
+        });
+        if (user) {
+          return cb(null, user);
+        } else {
+          const newUser = {
+            email: profile.emails[0].value,
+            hash: "google",
+          };
+
+          db.run(
+            "INSERT INTO users (email, hash) VALUES(?, ?)",
+            [newUser.email, newUser.hash],
+            (err) => {
+              if (err) {
+                console.error("Could not register user:", err);
+                return cb(err);
+              } else {
+                return cb(null, newUser);
+              }
+            }
+          );
+        }
+      } catch (err) {
+        return cb(err);
+      }
+    }
+  )
+);
+
+passport.use(
+  "facebook",
+  new FacebookStrategy(
+    {
+      clientID: process.env.FACEBOOK_APP_ID,
+      clientSecret: process.env.FACEBOOK_SECRET,
+      callbackURL: "http://localhost:5000/auth/facebook/callback",
+      profileFields: ["id", "email"],
+    },
+    async (accessToken, refreshToken, profile, cb) => {
+      console.log(profile);
+
+      try {
+        const user = await new Promise((resolve, reject) => {
+          db.get(
+            "SELECT * FROM users WHERE email = ?",
+            [profile.emails[0].value],
+            (err, row) => {
+              if (err) {
+                console.error("Could not query database:", err);
+                reject(err);
+              } else {
+                resolve(row);
+              }
+            }
+          );
+        });
+        if (user) {
+          return cb(null, user);
+        } else {
+          const newUser = {
+            email: profile.emails[0].value,
+            hash: "facebook",
+          };
+        }
+
+        db.run(
+          "INSERT INTO users (email, hash) VALUES(?, ?)",
+          [newUser.email, newUser.hash],
+          (err) => {
+            if (err) {
+              console.error("Error:", err);
+              return cb(err);
+            } else {
+              return cb(null, newUser);
+            }
+          }
+        );
+      } catch (err) {
+        return cb(err);
+      }
+    }
+  )
+);
+
 passport.serializeUser((user, cb) => {
   cb(null, user.id);
 });
@@ -83,6 +195,44 @@ passport.deserializeUser((id, cb) => {
     cb(null, user);
   });
 });
+
+app.get("/auth/status", (req, res) => {
+  if (req.isAuthenticated()) {
+    res.json({ isAuthenticated: true });
+  } else {
+    res.json({ isAuthenticated: false });
+  }
+});
+
+app.get(
+  "/auth/google",
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+  })
+);
+
+app.get(
+  "/auth/google/callback",
+  passport.authenticate("google", {
+    successRedirect: "http://localhost:3000/",
+    failureRedirect: "http://localhost:3000/login",
+  })
+);
+
+app.get(
+  "/auth/facebook",
+  passport.authenticate("facebook", {
+    scope: ["email"],
+  })
+);
+
+app.get(
+  "/auth/facebook/callback",
+  passport.authenticate("facebook", {
+    successRedirect: "http://localhost:3000/",
+    failureRedirect: "http://localhost:3000/login",
+  })
+);
 
 app.post("/login", (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
@@ -156,14 +306,6 @@ app.post("/logout", (req, res) => {
       res.status(200).json({ message: "Logout successful" });
     });
   });
-});
-
-app.get("/auth/status", (req, res) => {
-  if (req.isAuthenticated()) {
-    res.json({ isAuthenticated: true });
-  } else {
-    res.json({ isAuthenticated: false });
-  }
 });
 
 app.listen(port, () => {

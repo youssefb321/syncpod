@@ -33,18 +33,23 @@ const Navbar = () => {
       console.error("Logout failed", err);
     }
   };
+
   return (
     <nav className="bg-gray-800 p-4">
-      <div className="container mx-auto flex items-center">
-        <div className="text-white text-xl">
-          <Link to="/">Syncpod</Link>
+      <div className="container mx-auto flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="text-white text-xl">
+            <Link to="/">Syncpod</Link>
+          </div>
+          <ul className="ml-11 flex space-x-4">
+            <li>
+              <Link to="/" className="text-white hover:text-gray-400">
+                Home
+              </Link>
+            </li>
+          </ul>
         </div>
-        <ul className="ml-11 flex space-x-4">
-          <li>
-            <Link to="/" className="text-white hover:text-gray-400">
-              Home
-            </Link>
-          </li>
+        <ul className="flex space-x-4">
           {!isAuthenticated ? (
             <>
               <li>
