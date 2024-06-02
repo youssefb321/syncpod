@@ -47,6 +47,11 @@ const Navbar = () => {
                 Home
               </Link>
             </li>
+            <li>
+              <Link to="/app" className="text-white hover:text-gray-400">
+                App
+              </Link>
+            </li>
           </ul>
         </div>
         <ul className="flex space-x-4">

@@ -10,6 +10,8 @@ import env from "dotenv";
 import connectSqlite3 from "connect-sqlite3";
 import GoogleStrategy from "passport-google-oauth20";
 import FacebookStrategy from "passport-facebook";
+import { getYoutubeHistory } from "./youtube.js";
+import { Strategy as SpotifyStrategy } from "passport-spotify";
 
 const app = express();
 const port = 5000;
@@ -101,7 +103,7 @@ passport.use(
           );
         });
         if (user) {
-          return cb(null, user);
+          return cb(null, { ...user, accessToken });
         } else {
           const newUser = {
             email: profile.emails[0].value,
@@ -116,7 +118,7 @@ passport.use(
                 console.error("Could not register user:", err);
                 return cb(err);
               } else {
-                return cb(null, newUser);
+                return cb(null, { ...newUser, accessToken });
               }
             }
           );
@@ -162,20 +164,20 @@ passport.use(
             email: profile.emails[0].value,
             hash: "facebook",
           };
-        }
 
-        db.run(
-          "INSERT INTO users (email, hash) VALUES(?, ?)",
-          [newUser.email, newUser.hash],
-          (err) => {
-            if (err) {
-              console.error("Error:", err);
-              return cb(err);
-            } else {
-              return cb(null, newUser);
+          db.run(
+            "INSERT INTO users (email, hash) VALUES(?, ?)",
+            [newUser.email, newUser.hash],
+            (err) => {
+              if (err) {
+                console.error("Error:", err);
+                return cb(err);
+              } else {
+                return cb(null, newUser);
+              }
             }
-          }
-        );
+          );
+        }
       } catch (err) {
         return cb(err);
       }
@@ -183,16 +185,68 @@ passport.use(
   )
 );
 
+passport.use(
+  new SpotifyStrategy(
+    {
+      clientID: process.env.SPOTIFY_CLIENT_ID,
+      clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+      callbackURL: "http://localhost:5000/auth/spotify/callback",
+    },
+    async (accessToken, refreshToken, expires_in, profile, cb) => {
+      try {
+        const user = await new Promise((resolve, reject) => {
+          db.get(
+            "SELECT * FROM users WHERE spotify_id = ?",
+            [profile.id],
+            (err, row) => {
+              if (err) {
+                console.error("Could not query database:", err);
+                reject(err);
+              } else {
+                resolve(row);
+              }
+            }
+          );
+        });
+
+        if (user) {
+          user.accessToken = accessToken;
+          return cb(null, user);
+        } else {
+          const newUser = {
+            email: "spotify",
+            hash: "spotify",
+            spotify_id: profile.id,
+          };
+
+          db.run(
+            "INSERT INTO users (email, hash, spotify_id) VALUES(?, ?, ?)",
+            [newUser.email, newUser.hash, newUser.spotify_id],
+            (err, cb) => {
+              if (err) {
+                console.error("Error: ", err);
+                return cb(err);
+              } else {
+                return cb(null, newUser);
+              }
+            }
+          );
+        }
+      } catch (err) {}
+    }
+  )
+);
+
 passport.serializeUser((user, cb) => {
-  cb(null, user.id);
+  cb(null, { id: user.id, accessToken: user.accessToken });
 });
 
-passport.deserializeUser((id, cb) => {
-  db.get("SELECT * FROM users WHERE id = ?", [id], (err, user) => {
+passport.deserializeUser((obj, cb) => {
+  db.get("SELECT * FROM users WHERE id = ?", [obj.id], (err, user) => {
     if (err) {
       return cb(err);
     }
-    cb(null, user);
+    cb(null, { ...user, accessToken: obj.accessToken });
   });
 });
 
@@ -203,6 +257,25 @@ app.get("/auth/status", (req, res) => {
     res.json({ isAuthenticated: false });
   }
 });
+
+app.get(
+  "/auth/spotify",
+  passport.authenticate("spotify", {
+    scope: [
+      "user-library-read",
+      "user-read-playback-state",
+      "user-read-recently-played",
+    ],
+  })
+);
+
+app.get(
+  "/auth/spotify/callback",
+  passport.authenticate("spotify", {
+    failureRedirect: "http://localhost:3000/login",
+    successRedirect: "http://localhost:3000/app",
+  })
+);
 
 app.get(
   "/auth/google",
@@ -218,6 +291,28 @@ app.get(
     failureRedirect: "http://localhost:3000/login",
   })
 );
+
+app.get("/spotify/podcasts", async (req, res) => {
+  if (req.isAuthenticated()) {
+    const accessToken = req.user.accessToken;
+
+    try {
+      const response = await fetch("https://api.spotify.com/v1/me/shows", {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      console.error("Error fetching Spotify podcasts:", err);
+      res.status(500).json({ error: "Failed to fetch Spotify podcasts" });
+    }
+  } else {
+    res.status(401).json({ error: "Unauthorized" });
+  }
+});
 
 app.get(
   "/auth/facebook",
