@@ -1,5 +1,6 @@
 import React from "react";
 import axios from "axios";
+import Navbar from "../components/Navbar";
 
 const App = () => {
   const handleYoutubeLogin = () => {
@@ -18,37 +19,42 @@ const App = () => {
           withCredentials: true,
         }
       );
+
+      console.log(response);
     } catch (err) {
       console.error("Error fetching podcasts:", err);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-6 rounded shadow-md w-full max-w-md">
-        <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
-        <div>
-          <button
-            onClick={handleYoutubeLogin}
-            className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition-colors mb-2"
-          >
-            Login to YouTube
-          </button>
-          <button
-            onClick={handleSpotifyLogin}
-            className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition-colors mb-2"
-          >
-            Login to Spotify
-          </button>
-          <button
-            onClick={handleFetchPodcasts}
-            className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition-colors"
-          >
-            Fetch Podcasts
-          </button>
+    <>
+      <Navbar />
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="bg-white p-6 rounded shadow-md w-full max-w-md">
+          <h2 className="text-2xl font-bold mb-6 text-center">Login</h2>
+          <div>
+            <button
+              onClick={handleYoutubeLogin}
+              className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition-colors mb-2"
+            >
+              Login to YouTube
+            </button>
+            <button
+              onClick={handleSpotifyLogin}
+              className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition-colors mb-2"
+            >
+              Login to Spotify
+            </button>
+            <button
+              onClick={handleFetchPodcasts}
+              className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600 transition-colors"
+            >
+              Fetch Podcasts
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

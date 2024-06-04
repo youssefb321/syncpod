@@ -140,8 +140,6 @@ passport.use(
       profileFields: ["id", "email"],
     },
     async (accessToken, refreshToken, profile, cb) => {
-      console.log(profile);
-
       try {
         const user = await new Promise((resolve, reject) => {
           db.get(
@@ -193,6 +191,7 @@ passport.use(
       callbackURL: "http://localhost:5000/auth/spotify/callback",
     },
     async (accessToken, refreshToken, expires_in, profile, cb) => {
+      console.log(accessToken);
       try {
         const user = await new Promise((resolve, reject) => {
           db.get(
