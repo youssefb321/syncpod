@@ -305,40 +305,10 @@ app.get("/spotify/podcasts", async (req, res) => {
 
       const data = await response.json();
 
-      const shows = data.items.map((item) => item.show);
-      console.log(shows);
-
       res.json(data);
     } catch (err) {
       console.error("Error fetching Spotify podcasts:", err);
       res.status(500).json({ error: "Failed to fetch Spotify podcasts" });
-    }
-  } else {
-    res.status(401).json({ error: "Unauthorized" });
-  }
-});
-
-app.post("/spotify/podcasts/shows", async (req, res) => {
-  if (req.isAuthenticated()) {
-    const accessToken = req.user.accessToken;
-
-    const { id } = req.body;
-
-    try {
-      const response = await fetch(
-        `https://api.spotify.com/v1/shows/${id}/episodes`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-      return res.json(data);
-    } catch (err) {
-      console.error("Error fetching episodes:", err);
-      res.status(500).json({ error: "Failed to fetch episodes" });
     }
   } else {
     res.status(401).json({ error: "Unauthorized" });
@@ -432,6 +402,47 @@ app.post("/logout", (req, res) => {
       res.status(200).json({ message: "Logout successful" });
     });
   });
+});
+
+app.post("/spotify/podcasts/shows", async (req, res) => {
+  if (req.isAuthenticated()) {
+    const accessToken = req.user.accessToken;
+
+    const { id } = req.body;
+
+    try {
+      const response = await fetch(
+        `https://api.spotify.com/v1/shows/${id}/episodes`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      return res.json(data);
+    } catch (err) {
+      console.error("Error fetching episodes:", err);
+      res.status(500).json({ error: "Failed to fetch episodes" });
+    }
+  } else {
+    res.status(401).json({ error: "Unauthorized" });
+  }
+});
+
+app.post("/spotify/podcasts", (req, res) => {
+  const podcastData = req.body;
+
+  podcastData.forEach((podcast) => {
+    db.run(
+      "INSERT OR IGNORE INTO podcasts (id, name) VALUES (?, ?)",
+      podcast.showId,
+      podcast.showName
+    );
+  });
+
+  res.status(200).json({ message: "Podcasts saved successfully" });
 });
 
 app.listen(port, () => {

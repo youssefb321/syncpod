@@ -18,6 +18,19 @@ const Root = () => {
 
         const shows = data.items.map((item) => item.show);
 
+        const podcastData = shows.map((show) => ({
+          showId: show.id,
+          showName: show.name,
+        }));
+
+        await axios.post(
+          "http://localhost:5000/spotify/podcasts",
+          podcastData,
+          {
+            "Content-Type": "application/json",
+          }
+        );
+
         setPodcasts(shows);
       } catch (err) {
         console.error("Error fetching podcasts:", err);
