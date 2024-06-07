@@ -2,13 +2,9 @@ import React, { useState } from "react";
 import axios from "axios";
 
 const PodcastCard = ({ podcast }) => {
-  const [isSelected, setIsSelected] = useState(true);
+  const [isSelected, setIsSelected] = useState(false);
 
-  const toggleSelect = () => {
-    setIsSelected(!isSelected);
-  };
-
-  const handleFetchEpisodes = async (id) => {
+  const fetchEpisodes = async (id) => {
     try {
       console.log("Fetching episodes with id: ", id);
 
@@ -19,9 +15,22 @@ const PodcastCard = ({ podcast }) => {
           withCredentials: true,
         }
       );
+
+      console.log(response);
     } catch (err) {
       console.error("Error fetching episodes:", err);
     }
+  };
+
+  const toggleSelect = () => {
+    setIsSelected((prevSelected) => {
+      const newSelected = !prevSelected;
+      if (newSelected) {
+        fetchEpisodes(podcast.id);
+      }
+
+      return newSelected;
+    });
   };
 
   return (
@@ -46,12 +55,6 @@ const PodcastCard = ({ podcast }) => {
           <span>Select</span>
         </label>
       </div>
-      <button
-        onClick={() => handleFetchEpisodes(podcast.id)}
-        className="bg-green-500 text-white p-2 m-3 rounded hover:bg-green-600 transition-colors"
-      >
-        Fetch episodes
-      </button>
     </div>
   );
 };
