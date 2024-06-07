@@ -10,6 +10,7 @@ import env from "dotenv";
 import connectSqlite3 from "connect-sqlite3";
 import GoogleStrategy from "passport-google-oauth20";
 import FacebookStrategy from "passport-facebook";
+import fetch from "node-fetch";
 import { getYoutubeHistory } from "./youtube.js";
 import { Strategy as SpotifyStrategy } from "passport-spotify";
 
@@ -85,8 +86,6 @@ passport.use(
       userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
     },
     async (accessToken, refreshToken, profile, cb) => {
-      console.log(profile);
-
       try {
         const user = await new Promise((resolve, reject) => {
           db.get(
@@ -191,7 +190,6 @@ passport.use(
       callbackURL: "http://localhost:5000/auth/spotify/callback",
     },
     async (accessToken, refreshToken, expires_in, profile, cb) => {
-      console.log(accessToken);
       try {
         const user = await new Promise((resolve, reject) => {
           db.get(
@@ -231,7 +229,9 @@ passport.use(
             }
           );
         }
-      } catch (err) {}
+      } catch (err) {
+        return cb(err);
+      }
     }
   )
 );
@@ -264,6 +264,7 @@ app.get(
       "user-library-read",
       "user-read-playback-state",
       "user-read-recently-played",
+      "user-read-playback-position",
     ],
   })
 );
@@ -303,10 +304,41 @@ app.get("/spotify/podcasts", async (req, res) => {
       });
 
       const data = await response.json();
+
+      const shows = data.items.map((item) => item.show);
+      console.log(shows);
+
       res.json(data);
     } catch (err) {
       console.error("Error fetching Spotify podcasts:", err);
       res.status(500).json({ error: "Failed to fetch Spotify podcasts" });
+    }
+  } else {
+    res.status(401).json({ error: "Unauthorized" });
+  }
+});
+
+app.post("/spotify/podcasts/shows", async (req, res) => {
+  if (req.isAuthenticated()) {
+    const accessToken = req.user.accessToken;
+
+    const { id } = req.body;
+
+    try {
+      const response = await fetch(
+        `https://api.spotify.com/v1/shows/${id}/episodes`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      return res.json(data);
+    } catch (err) {
+      console.error("Error fetching episodes:", err);
+      res.status(500).json({ error: "Failed to fetch episodes" });
     }
   } else {
     res.status(401).json({ error: "Unauthorized" });

@@ -20,7 +20,7 @@ const App = () => {
         }
       );
 
-      console.log(response);
+      console.log(response.data.items[0].show);
     } catch (err) {
       console.error("Error fetching podcasts:", err);
     }

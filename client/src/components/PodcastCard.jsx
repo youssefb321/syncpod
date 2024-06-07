@@ -1,10 +1,27 @@
 import React, { useState } from "react";
+import axios from "axios";
 
 const PodcastCard = ({ podcast }) => {
   const [isSelected, setIsSelected] = useState(true);
 
   const toggleSelect = () => {
     setIsSelected(!isSelected);
+  };
+
+  const handleFetchEpisodes = async (id) => {
+    try {
+      console.log("Fetching episodes with id: ", id);
+
+      const response = await axios.post(
+        "http://localhost:5000/spotify/podcasts/shows",
+        { id },
+        {
+          withCredentials: true,
+        }
+      );
+    } catch (err) {
+      console.error("Error fetching episodes:", err);
+    }
   };
 
   return (
@@ -29,6 +46,12 @@ const PodcastCard = ({ podcast }) => {
           <span>Select</span>
         </label>
       </div>
+      <button
+        onClick={() => handleFetchEpisodes(podcast.id)}
+        className="bg-green-500 text-white p-2 m-3 rounded hover:bg-green-600 transition-colors"
+      >
+        Fetch episodes
+      </button>
     </div>
   );
 };
