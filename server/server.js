@@ -130,59 +130,6 @@ passport.use(
 );
 
 passport.use(
-  "facebook",
-  new FacebookStrategy(
-    {
-      clientID: process.env.FACEBOOK_APP_ID,
-      clientSecret: process.env.FACEBOOK_SECRET,
-      callbackURL: "http://localhost:5000/auth/facebook/callback",
-      profileFields: ["id", "email"],
-    },
-    async (accessToken, refreshToken, profile, cb) => {
-      try {
-        const user = await new Promise((resolve, reject) => {
-          db.get(
-            "SELECT * FROM users WHERE email = ?",
-            [profile.emails[0].value],
-            (err, row) => {
-              if (err) {
-                console.error("Could not query database:", err);
-                reject(err);
-              } else {
-                resolve(row);
-              }
-            }
-          );
-        });
-        if (user) {
-          return cb(null, user);
-        } else {
-          const newUser = {
-            email: profile.emails[0].value,
-            hash: "facebook",
-          };
-
-          db.run(
-            "INSERT INTO users (email, hash) VALUES(?, ?)",
-            [newUser.email, newUser.hash],
-            (err) => {
-              if (err) {
-                console.error("Error:", err);
-                return cb(err);
-              } else {
-                return cb(null, newUser);
-              }
-            }
-          );
-        }
-      } catch (err) {
-        return cb(err);
-      }
-    }
-  )
-);
-
-passport.use(
   new SpotifyStrategy(
     {
       clientID: process.env.SPOTIFY_CLIENT_ID,
@@ -237,10 +184,12 @@ passport.use(
 );
 
 passport.serializeUser((user, cb) => {
+  console.log("Serializing user: ", user);
   cb(null, { id: user.id, accessToken: user.accessToken });
 });
 
 passport.deserializeUser((obj, cb) => {
+  console.log("Deserializing user: ", obj);
   db.get("SELECT * FROM users WHERE id = ?", [obj.id], (err, user) => {
     if (err) {
       return cb(err);
@@ -315,21 +264,6 @@ app.get("/spotify/podcasts", async (req, res) => {
   }
 });
 
-app.get(
-  "/auth/facebook",
-  passport.authenticate("facebook", {
-    scope: ["email"],
-  })
-);
-
-app.get(
-  "/auth/facebook/callback",
-  passport.authenticate("facebook", {
-    successRedirect: "http://localhost:3000/",
-    failureRedirect: "http://localhost:3000/login",
-  })
-);
-
 app.post("/login", (req, res, next) => {
   passport.authenticate("local", (err, user, info) => {
     if (err) {
@@ -345,6 +279,12 @@ app.post("/login", (req, res, next) => {
       return res.status(200).json({ message: "Login successful!" });
     });
   })(req, res, next);
+});
+
+app.use((req, res, next) => {
+  console.log("Session: ", req.session);
+  console.log("User: ", req.user);
+  next();
 });
 
 app.post("/register", async (req, res) => {
@@ -432,17 +372,33 @@ app.post("/spotify/podcasts/shows", async (req, res) => {
 });
 
 app.post("/spotify/podcasts", (req, res) => {
+  console.log("User authentication status:", req.isAuthenticated());
+  console.log("user details:", req.user);
   const podcastData = req.body;
 
-  podcastData.forEach((podcast) => {
-    db.run(
-      "INSERT OR IGNORE INTO podcasts (id, name) VALUES (?, ?)",
-      podcast.showId,
-      podcast.showName
-    );
-  });
+  console.log("Received podcast data: ", podcastData);
 
-  res.status(200).json({ message: "Podcasts saved successfully" });
+  if (req.isAuthenticated()) {
+    podcastData.forEach((podcast) => {
+      db.run(
+        "INSERT OR IGNORE INTO podcasts (id, name, user_id) VALUES (?, ?, ?)",
+        [podcast.showId, podcast.showName, req.user.id],
+        (err) => {
+          if (err) {
+            console.error("Error inserting podcasts:", err);
+          } else {
+            console.log(
+              `Podcast inserted: ${podcast.showName} (ID: ${podcast.showId}) for user ${req.user.id}`
+            );
+          }
+        }
+      );
+    });
+    res.status(200).json({ message: "Podcasts saved successfully" });
+  } else {
+    console.log("User is not authenticated");
+    res.status(401).json({ message: "User is not authenticated" });
+  }
 });
 
 app.listen(port, () => {

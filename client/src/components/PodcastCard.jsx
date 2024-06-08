@@ -1,37 +1,41 @@
 import React, { useState } from "react";
-import axios from "axios";
+// import axios from "axios";
 
-const PodcastCard = ({ podcast }) => {
-  const [isSelected, setIsSelected] = useState(false);
+const PodcastCard = ({ podcast, isSelected, onSelect }) => {
+  // const [isSelected, setIsSelected] = useState(false);
 
-  const fetchEpisodes = async (id) => {
-    try {
-      console.log("Fetching episodes with id: ", id);
-
-      const response = await axios.post(
-        "http://localhost:5000/spotify/podcasts/shows",
-        { id },
-        {
-          withCredentials: true,
-        }
-      );
-
-      console.log(response);
-    } catch (err) {
-      console.error("Error fetching episodes:", err);
-    }
+  const handleChange = () => {
+    onSelect(podcast.id);
   };
 
-  const toggleSelect = () => {
-    setIsSelected((prevSelected) => {
-      const newSelected = !prevSelected;
-      if (newSelected) {
-        fetchEpisodes(podcast.id);
-      }
+  // const fetchEpisodes = async (id) => {
+  //   try {
+  //     console.log("Fetching episodes with id: ", id);
 
-      return newSelected;
-    });
-  };
+  //     const response = await axios.post(
+  //       "http://localhost:5000/spotify/podcasts/shows",
+  //       { id },
+  //       {
+  //         withCredentials: true,
+  //       }
+  //     );
+
+  //     console.log(response);
+  //   } catch (err) {
+  //     console.error("Error fetching episodes:", err);
+  //   }
+  // };
+
+  // const toggleSelect = () => {
+  //   setIsSelected((prevSelected) => {
+  //     const newSelected = !prevSelected;
+  //     if (newSelected) {
+  //       fetchEpisodes(podcast.id);
+  //     }
+
+  //     return newSelected;
+  //   });
+  // };
 
   return (
     <div className="max-w-sm rounded overflow-hidden shadow-lg m-4 bg-white">
@@ -50,7 +54,7 @@ const PodcastCard = ({ podcast }) => {
             type="checkbox"
             className="form-checkbox"
             checked={isSelected}
-            onChange={toggleSelect}
+            onChange={handleChange}
           />
           <span>Select</span>
         </label>

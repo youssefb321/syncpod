@@ -48,10 +48,6 @@ const Login = () => {
     window.location.href = "http://localhost:5000/auth/google";
   };
 
-  const handleFacebookLogin = async () => {
-    window.location.href = "http://localhost:5000/auth/facebook/callback";
-  };
-
   return (
     <>
       <Navbar />
@@ -112,12 +108,6 @@ const Login = () => {
               className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600 transition-colors mb-2"
             >
               Login with Google
-            </button>
-            <button
-              onClick={handleFacebookLogin}
-              className="w-full bg-blue-700 text-white py-2 rounded hover:bg-blue-800 transition-colors"
-            >
-              Login with Facebook
             </button>
           </div>
         </div>
