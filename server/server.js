@@ -253,7 +253,6 @@ app.get("/spotify/podcasts", async (req, res) => {
       });
 
       const data = await response.json();
-      console.log(data.items[0].show.images);
 
       const podcastData = data.items.map((item) => item.show);
       podcastData.forEach((podcast) => {
@@ -402,6 +401,8 @@ app.post("/spotify/podcasts", (req, res) => {
 
   const { podcastId, switchState } = req.body;
 
+  console.log(`Podcast ID: ${podcastId}, switch state: ${switchState}`);
+
   if (req.isAuthenticated()) {
     db.run(
       "UPDATE podcasts SET switch_state = ? WHERE id = ? AND user_id = ?",
@@ -413,6 +414,7 @@ app.post("/spotify/podcasts", (req, res) => {
         }
 
         res.status(200).json({ message: "Updated switch state successfully" });
+        console.log("Successfully updated switch state");
       }
     );
   } else {

@@ -33,7 +33,7 @@ const Root = () => {
       podcast.id === podcastId
         ? {
             ...podcast,
-            switchState: podcast.switchState === "ON" ? "OFF" : "ON",
+            switch_state: podcast.switch_state === "ON" ? "OFF" : "ON",
           }
         : podcast
     );
@@ -48,7 +48,7 @@ const Root = () => {
         "http://localhost:5000/spotify/podcasts",
         {
           podcastId: updatedPodcast.id,
-          switchState: updatedPodcast.switchState,
+          switchState: updatedPodcast.switch_state,
         },
         {
           withCredentials: true,
@@ -73,8 +73,8 @@ const Root = () => {
             <PodcastCard
               key={podcast.id}
               podcast={podcast}
-              isSelected={podcast.switchState === "ON"}
-              onSelect={() => handleSelectPodcast(podcast.id)}
+              isSelected={podcast.switch_state === "ON"}
+              onSelect={handleSelectPodcast}
             />
           ))}
         </div>
