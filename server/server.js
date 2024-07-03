@@ -184,12 +184,12 @@ passport.use(
 );
 
 passport.serializeUser((user, cb) => {
-  console.log("Serializing user: ", user);
+  // console.log("Serializing user: ", user);
   cb(null, { id: user.id, accessToken: user.accessToken });
 });
 
 passport.deserializeUser((obj, cb) => {
-  console.log("Deserializing user: ", obj);
+  // console.log("Deserializing user: ", obj);
   db.get("SELECT * FROM users WHERE id = ?", [obj.id], (err, user) => {
     if (err) {
       return cb(err);
@@ -253,8 +253,35 @@ app.get("/spotify/podcasts", async (req, res) => {
       });
 
       const data = await response.json();
+      console.log(data.items[0].show.images);
 
-      res.json(data);
+      const podcastData = data.items.map((item) => item.show);
+      podcastData.forEach((podcast) => {
+        db.run(
+          "INSERT OR IGNORE INTO podcasts (id, name, user_id, switch_state, image) VALUES (?, ?, ?, 'OFF', ?)",
+          [podcast.id, podcast.name, req.user.id, podcast.images[2].url],
+          (err) => {
+            if (err) {
+              console.error("Error inserting podcasts:", err);
+            }
+          }
+        );
+      });
+
+      db.all(
+        "SELECT * FROM podcasts WHERE user_id = ?",
+        [req.user.id],
+        (err, rows) => {
+          if (err) {
+            console.error("Error retrieving podcasts:", err);
+            res
+              .status(500)
+              .json({ error: "Failed to retrieve podcasts from database" });
+          } else {
+            res.json(rows);
+          }
+        }
+      );
     } catch (err) {
       console.error("Error fetching Spotify podcasts:", err);
       res.status(500).json({ error: "Failed to fetch Spotify podcasts" });
@@ -282,8 +309,6 @@ app.post("/login", (req, res, next) => {
 });
 
 app.use((req, res, next) => {
-  console.log("Session: ", req.session);
-  console.log("User: ", req.user);
   next();
 });
 
@@ -344,7 +369,7 @@ app.post("/logout", (req, res) => {
   });
 });
 
-app.post("/spotify/podcasts/shows", async (req, res) => {
+app.post("/spotify/podcasts/episodes", async (req, res) => {
   if (req.isAuthenticated()) {
     const accessToken = req.user.accessToken;
 
@@ -374,27 +399,22 @@ app.post("/spotify/podcasts/shows", async (req, res) => {
 app.post("/spotify/podcasts", (req, res) => {
   console.log("User authentication status:", req.isAuthenticated());
   console.log("user details:", req.user);
-  const podcastData = req.body;
 
-  console.log("Received podcast data: ", podcastData);
+  const { podcastId, switchState } = req.body;
 
   if (req.isAuthenticated()) {
-    podcastData.forEach((podcast) => {
-      db.run(
-        "INSERT OR IGNORE INTO podcasts (id, name, user_id) VALUES (?, ?, ?)",
-        [podcast.showId, podcast.showName, req.user.id],
-        (err) => {
-          if (err) {
-            console.error("Error inserting podcasts:", err);
-          } else {
-            console.log(
-              `Podcast inserted: ${podcast.showName} (ID: ${podcast.showId}) for user ${req.user.id}`
-            );
-          }
+    db.run(
+      "UPDATE podcasts SET switch_state = ? WHERE id = ? AND user_id = ?",
+      [switchState, podcastId, req.user.id],
+      (err) => {
+        if (err) {
+          console.error("Could not update switch state:", err);
+          res.status(500).json({ error: "Could not update switch state" });
         }
-      );
-    });
-    res.status(200).json({ message: "Podcasts saved successfully" });
+
+        res.status(200).json({ message: "Updated switch state successfully" });
+      }
+    );
   } else {
     console.log("User is not authenticated");
     res.status(401).json({ message: "User is not authenticated" });

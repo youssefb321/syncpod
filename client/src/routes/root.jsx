@@ -1,26 +1,23 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
-import PodcastList from "../components/PodcastList";
 import axios from "axios";
 import PodcastCard from "../components/PodcastCard";
 
 const Root = () => {
   const [podcasts, setPodcasts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPodcasts, setSelectedPodcasts] = useState([]);
 
   useEffect(() => {
     const fetchPodcasts = async () => {
       try {
-        const { data } = await axios.get(
+        const { data: podcastData } = await axios.get(
           "http://localhost:5000/spotify/podcasts",
           {
             withCredentials: true,
           }
         );
 
-        const shows = data.items.map((item) => item.show);
-        setPodcasts(shows);
+        setPodcasts(podcastData);
       } catch (err) {
         console.error("Error fetching podcasts:", err);
       } finally {
@@ -31,31 +28,28 @@ const Root = () => {
     fetchPodcasts();
   }, []);
 
-  const handleSelectPodcast = (podcastId) => {
-    setSelectedPodcasts((prevSelected) => {
-      if (prevSelected.includes(podcastId)) {
-        return prevSelected.filter((id) => id !== podcastId);
-      } else {
-        return [...prevSelected, podcastId];
-      }
-    });
-  };
+  const handleSelectPodcast = async (podcastId) => {
+    const updatedPodcasts = podcasts.map((podcast) =>
+      podcast.id === podcastId
+        ? {
+            ...podcast,
+            switchState: podcast.switchState === "ON" ? "OFF" : "ON",
+          }
+        : podcast
+    );
+    setPodcasts(updatedPodcasts);
 
-  const saveSelectedPodcasts = async () => {
-    console.log("Selected podcasts: ", selectedPodcasts);
-    const podcastData = podcasts
-      .filter((podcast) => selectedPodcasts.includes(podcast.id))
-      .map((podcast) => ({
-        showId: podcast.id,
-        showName: podcast.name,
-      }));
-
-    console.log("Data to be saved: ", podcastData);
+    const updatedPodcast = updatedPodcasts.find(
+      (podcast) => podcast.id === podcastId
+    );
 
     try {
-      const response = await axios.post(
+      await axios.post(
         "http://localhost:5000/spotify/podcasts",
-        podcastData,
+        {
+          podcastId: updatedPodcast.id,
+          switchState: updatedPodcast.switchState,
+        },
         {
           withCredentials: true,
           headers: {
@@ -63,34 +57,26 @@ const Root = () => {
           },
         }
       );
-      console.log("Server response: ", response.data);
-      alert("Selected podcasts saved successfully");
     } catch (err) {
-      console.error("Error saving podcasts:", err);
+      console.error("Error updating podcast switch state:", err);
     }
   };
 
   return (
     <>
       <Navbar />
-      {loading && <p>loading...</p>}
+      {loading && <p>Loading...</p>}
       {!loading && (
-        <div className="container mx-auto p-4">
+        <div className="container mx-auto p-4 w-full flex-col">
           <h1 className="text-3xl font-bold text-center mb-8">Podcasts</h1>
           {podcasts.map((podcast) => (
             <PodcastCard
               key={podcast.id}
               podcast={podcast}
-              isSelected={selectedPodcasts.includes(podcast.id)}
-              onSelect={handleSelectPodcast}
+              isSelected={podcast.switchState === "ON"}
+              onSelect={() => handleSelectPodcast(podcast.id)}
             />
           ))}
-          <button
-            className="p-2 rounded bg-green-500 text-white hover:bg-green-600 transition-colors"
-            onClick={saveSelectedPodcasts}
-          >
-            Save Selected Podcasts
-          </button>
         </div>
       )}
     </>
