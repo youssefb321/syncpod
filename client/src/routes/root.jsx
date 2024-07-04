@@ -62,6 +62,14 @@ const Root = () => {
     }
   };
 
+  const handleClick = async () => {
+    const response = await axios.get("http://localhost:5000/spotify/episodes", {
+      withCredentials: true,
+    });
+
+    console.log(response);
+  };
+
   return (
     <>
       <Navbar />
@@ -77,6 +85,7 @@ const Root = () => {
               onSelect={handleSelectPodcast}
             />
           ))}
+          <button onClick={handleClick}>Fetch episodes</button>
         </div>
       )}
     </>

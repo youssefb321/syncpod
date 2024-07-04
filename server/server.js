@@ -198,6 +198,24 @@ passport.deserializeUser((obj, cb) => {
   });
 });
 
+const fetchWithRetry = async (url, options, retries = 3, backoff = 300) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      return response;
+    } catch (err) {
+      if (i === retries - 1) {
+        throw err;
+      }
+      await new Promise((resolve) => setTimeout(resolve, backoff));
+      backoff *= 2;
+    }
+  }
+};
+
 app.get("/auth/status", (req, res) => {
   if (req.isAuthenticated()) {
     res.json({ isAuthenticated: true });
@@ -214,6 +232,7 @@ app.get(
       "user-read-playback-state",
       "user-read-recently-played",
       "user-read-playback-position",
+      "user-read-currently-playing",
     ],
   })
 );
@@ -287,6 +306,101 @@ app.get("/spotify/podcasts", async (req, res) => {
     }
   } else {
     res.status(401).json({ error: "Unauthorized" });
+  }
+});
+
+app.get("/spotify/episodes", async (req, res) => {
+  if (req.isAuthenticated()) {
+    const accessToken = req.user.accessToken;
+    console.log("Access Token: ", accessToken);
+
+    try {
+      const getPodcasts = () => {
+        return new Promise((resolve, reject) => {
+          db.all(
+            "SELECT id, name FROM podcasts WHERE switch_state = 'ON' AND user_id = ?",
+            [req.user.id],
+            (err, rows) => {
+              if (err) {
+                return reject(err);
+              }
+              resolve(rows);
+            }
+          );
+        });
+      };
+
+      const rows = await getPodcasts();
+
+      const episodeDetailsPromises = rows.map(async (row) => {
+        try {
+          const response = await fetchWithRetry(
+            `https://api.spotify.com/v1/shows/${row.id}/episodes`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+
+          const data = await response.json();
+          const episodes = data.items.map((episode) => ({
+            id: episode.id,
+            name: episode.name,
+            resume_position_ms: episode.resume_point.resume_position_ms,
+            podcast_id: row.id,
+            user_id: req.user.id,
+          }));
+
+          return {
+            showId: row.id,
+            episodes,
+          };
+        } catch (err) {
+          console.error(`Failed to fetch episodes for show ${row.name}`, err);
+          throw new Error(`Failed to fetch episodes for ${row.name}`);
+        }
+      });
+
+      const episodeDetails = await Promise.all(episodeDetailsPromises);
+      console.log(episodeDetails);
+
+      const insertEpisode = (episode) => {
+        return new Promise((resolve, reject) => {
+          db.run(
+            "INSERT OR REPLACE INTO episodes (id, name, podcast_id, user_id, timestamp) VALUES (?, ?, ?, ?, ?)",
+            [
+              episode.id,
+              episode.name,
+              episode.podcast_id,
+              req.user.id,
+              episode.resume_position_ms,
+            ],
+            (err) => {
+              if (err) {
+                console.error("Could not insert episode:", err);
+                return reject(err);
+              }
+              resolve();
+            }
+          );
+        });
+      };
+
+      const insertEpisodesPromises = episodeDetails.flatMap((details) =>
+        details.episodes.map(insertEpisode)
+      );
+
+      await Promise.all(insertEpisodesPromises);
+
+      res.status(200).json({ episodeDetails });
+    } catch (err) {
+      console.error("Error fetching episodes from Spotify:", err);
+      res.status(500).json({ error: "Failed to fetch episodes from Spotify" });
+    }
+  } else {
+    console.log("User not authenticated");
+    res.status(401).json({ error: "User not authenticated" });
   }
 });
 
