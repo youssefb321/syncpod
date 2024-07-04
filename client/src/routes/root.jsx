@@ -57,17 +57,13 @@ const Root = () => {
           },
         }
       );
+
+      await axios.get("http://localhost:5000/spotify/episodes", {
+        withCredentials: true,
+      });
     } catch (err) {
       console.error("Error updating podcast switch state:", err);
     }
-  };
-
-  const handleClick = async () => {
-    const response = await axios.get("http://localhost:5000/spotify/episodes", {
-      withCredentials: true,
-    });
-
-    console.log(response);
   };
 
   return (
@@ -85,7 +81,6 @@ const Root = () => {
               onSelect={handleSelectPodcast}
             />
           ))}
-          <button onClick={handleClick}>Fetch episodes</button>
         </div>
       )}
     </>
