@@ -9,10 +9,9 @@ import sqlite3 from "sqlite3";
 import env from "dotenv";
 import connectSqlite3 from "connect-sqlite3";
 import GoogleStrategy from "passport-google-oauth20";
-import FacebookStrategy from "passport-facebook";
 import fetch from "node-fetch";
-import { getYoutubeHistory } from "./youtube.js";
 import { Strategy as SpotifyStrategy } from "passport-spotify";
+import { searchYoutube } from "./youtube.js";
 
 const app = express();
 const port = 5000;
@@ -198,12 +197,58 @@ passport.deserializeUser((obj, cb) => {
   });
 });
 
-const fetchWithRetry = async (url, options, retries = 3, backoff = 300) => {
+const refreshSpotifyToken = async (refreshToken) => {
+  const url = `https://accounts.spotify.com/api/token`;
+  const body = new URLSearchParams({
+    grant_type: "refresh_token",
+    refresh_token: refreshToken,
+    client_id: `${process.env.SPOTIFY_CLIENT_ID}`,
+    client_secret: `${process.env.SPOTIFY_CLIENT_SECRET}`,
+  });
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to refresh token: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.access_token;
+};
+
+const fetchWithRetry = async (
+  url,
+  options,
+  req,
+  retries = 3,
+  backoff = 300
+) => {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, options);
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
+      } else if (response.status === 401) {
+        console.log("Token expired, refreshing...");
+        try {
+          const newAccessToken = await refreshSpotifyToken(
+            req.user.refreshToken
+          );
+
+          req.user.accessToken = newAccessToken;
+
+          options.headers.Authorization = `Bearer ${newAccessToken}`;
+          response = await fetch(url, options);
+        } catch (err) {
+          console.error("Failed to refresh access token:", err);
+          throw new Error("Could not refresh access token");
+        }
       }
       return response;
     } catch (err) {
@@ -340,21 +385,35 @@ app.get("/spotify/episodes", async (req, res) => {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
               },
-            }
+            },
+            req
           );
 
           const data = await response.json();
-          const episodes = data.items.map((episode) => ({
-            id: episode.id,
-            name: episode.name,
-            resume_position_ms: episode.resume_point.resume_position_ms,
-            podcast_id: row.id,
-            user_id: req.user.id,
-          }));
+          const episodes = data.items.map(async (episode) => {
+            let youtubeUrl = null;
+            try {
+              youtubeUrl = await searchYoutube(`${episode.name}`);
+            } catch (err) {
+              console.error(
+                `Youtube search failed for episode ${episode.name}`,
+                err
+              );
+            }
+
+            return {
+              id: episode.id,
+              name: episode.name,
+              resume_position_ms: episode.resume_point.resume_position_ms,
+              podcast_id: row.id,
+              user_id: req.user.id,
+              youtube_url: youtubeUrl,
+            };
+          });
 
           return {
             showId: row.id,
-            episodes,
+            episodes: await Promise.all(episodes),
           };
         } catch (err) {
           console.error(`Failed to fetch episodes for show ${row.name}`, err);
@@ -368,13 +427,14 @@ app.get("/spotify/episodes", async (req, res) => {
       const insertEpisode = (episode) => {
         return new Promise((resolve, reject) => {
           db.run(
-            "INSERT OR REPLACE INTO episodes (id, name, podcast_id, user_id, timestamp) VALUES (?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO episodes (id, name, podcast_id, user_id, timestamp, youtube_url) VALUES (?, ?, ?, ?, ?, ?)",
             [
               episode.id,
               episode.name,
               episode.podcast_id,
               req.user.id,
               episode.resume_position_ms,
+              episode.youtube_url,
             ],
             (err) => {
               if (err) {
