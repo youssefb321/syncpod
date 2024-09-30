@@ -25,7 +25,7 @@ const Login = () => {
 
     try {
       const response = await axios.post(
-        "http://localhost:5000/login",
+        "http://localhost:5001/login",
         {
           email: formData.email,
           password: formData.password,
@@ -45,7 +45,7 @@ const Login = () => {
   };
 
   const handleGoogleLogin = async () => {
-    window.location.href = "http://localhost:5000/auth/google";
+    window.location.href = "http://localhost:5001/auth/google";
   };
 
   return (

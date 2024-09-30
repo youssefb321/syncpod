@@ -14,7 +14,7 @@ import { Strategy as SpotifyStrategy } from "passport-spotify";
 import { searchYoutube } from "./youtube.js";
 
 const app = express();
-const port = 5000;
+const port = 5001;
 const saltRounds = 10;
 env.config();
 
@@ -81,7 +81,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "http://localhost:5000/auth/google/callback",
+      callbackURL: "http://localhost:5001/auth/google/callback",
       userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
     },
     async (accessToken, refreshToken, profile, cb) => {
@@ -133,7 +133,7 @@ passport.use(
     {
       clientID: process.env.SPOTIFY_CLIENT_ID,
       clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
-      callbackURL: "http://localhost:5000/auth/spotify/callback",
+      callbackURL: "http://localhost:5001/auth/spotify/callback",
     },
     async (accessToken, refreshToken, expires_in, profile, cb) => {
       try {
@@ -317,22 +317,36 @@ app.get("/spotify/podcasts", async (req, res) => {
       });
 
       const data = await response.json();
+      console.log(data);
 
       const podcastData = data.items.map((item) => item.show);
       podcastData.forEach((podcast) => {
         db.run(
-          "INSERT OR IGNORE INTO podcasts (id, name, user_id, switch_state, image) VALUES (?, ?, ?, 'OFF', ?)",
-          [podcast.id, podcast.name, req.user.id, podcast.images[2].url],
+          "INSERT OR IGNORE INTO podcasts (id, name, image) VALUES (?, ?, ?)",
+          [podcast.id, podcast.name, podcast.images[2].url],
           (err) => {
             if (err) {
               console.error("Error inserting podcasts:", err);
+            } else {
+              console.log("Podcasts inserted!");
+            }
+          }
+        );
+        db.run(
+          "INSERT OR IGNORE INTO user_podcasts (podcast_id, user_id) VALUES (?, ?)",
+          [podcast.id, req.user.id],
+          (err) => {
+            if (err) {
+              console.error("Error inserting podcasts:", err);
+            } else {
+              console.log("Podcasts inserted!");
             }
           }
         );
       });
 
       db.all(
-        "SELECT * FROM podcasts WHERE user_id = ?",
+        "SELECT podcasts.id, podcasts.name, podcasts.image FROM podcasts JOIN user_podcasts ON podcasts.id = user_podcasts.podcast_id WHERE user_id = ?",
         [req.user.id],
         (err, rows) => {
           if (err) {
@@ -390,10 +404,17 @@ app.get("/spotify/episodes", async (req, res) => {
           );
 
           const data = await response.json();
-          const episodes = data.items.map(async (episode) => {
+
+          const getYoutubeUrl = async (episode) => {
+            const cachedUrl = await getCachedYoutubeUrl(episode.id);
+            if (cachedUrl) {
+              return cachedUrl;
+            }
+
             let youtubeUrl = null;
             try {
               youtubeUrl = await searchYoutube(`${episode.name}`);
+              await cacheYoutubeUrl(episode.id, youtubeUrl);
             } catch (err) {
               console.error(
                 `Youtube search failed for episode ${episode.name}`,
@@ -401,13 +422,50 @@ app.get("/spotify/episodes", async (req, res) => {
               );
             }
 
+            return youtubeUrl;
+          };
+
+          const getCachedYoutubeUrl = (episodeId) => {
+            return new Promise((resolve, reject) => {
+              db.get(
+                "SELECT youtube_url FROM episodes WHERE id = ?",
+                [episodeId],
+                (err, row) => {
+                  if (err) {
+                    return reject(err);
+                  }
+                  resolve(row ? row.youtube_url : null);
+                }
+              );
+            });
+          };
+
+          const cacheYoutubeUrl = (episodeId, youtubeUrl) => {
+            return new Promise((resolve, reject) => {
+              db.run(
+                "UPDATE episodes SET youtube_url = ? WHERE id = ?",
+                [youtubeUrl, episodeId],
+                (err) => {
+                  if (err) {
+                    return reject(err);
+                  }
+                  resolve();
+                }
+              );
+            });
+          };
+          const episodes = data.items.map(async (episode) => {
+            let updatedUrl = null;
+
+            getYoutubeUrl(episode);
+
             return {
               id: episode.id,
               name: episode.name,
               resume_position_ms: episode.resume_point.resume_position_ms,
               podcast_id: row.id,
               user_id: req.user.id,
-              youtube_url: youtubeUrl,
+              updated_url: updatedUrl,
             };
           });
 
@@ -427,14 +485,13 @@ app.get("/spotify/episodes", async (req, res) => {
       const insertEpisode = (episode) => {
         return new Promise((resolve, reject) => {
           db.run(
-            "INSERT OR REPLACE INTO episodes (id, name, podcast_id, user_id, timestamp, youtube_url) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO episodes (id, name, podcast_id, user_id, timestamp, youtube_url) VALUES (?, ?, ?, ?, ?)",
             [
               episode.id,
               episode.name,
               episode.podcast_id,
               req.user.id,
               episode.resume_position_ms,
-              episode.youtube_url,
             ],
             (err) => {
               if (err) {

@@ -6,6 +6,9 @@ export const searchYoutube = async (query) => {
   )}&type=video&key=${process.env.GOOGLE_API_KEY}`;
 
   const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch from YouTube API: ${response.statusText}`);
+  }
   const data = await response.json();
 
   if (data.items && data.items.length > 0) {

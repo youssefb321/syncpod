@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SyncPod Extension</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        width: 300px;
+        padding: 10px;
+      }
+      .podcast-section {
+        margin-top: 20px;
+      }
+      .dropdown {
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Continue Listening</h2>
+    <p>Most recent podcast:</p>
+    <a id="latestPodcastLink" href="#" target="_blank">Loading...</a>
+
+    <div class="podcast-section">
+      <h3>Your Podcasts</h3>
+      <div id="podcastList">
+        <!-- Podcasts will be dynamically inserted here -->
+      </div>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

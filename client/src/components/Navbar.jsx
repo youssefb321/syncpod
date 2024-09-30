@@ -9,7 +9,7 @@ const Navbar = () => {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const response = await axios.get("http://localhost:5000/auth/status", {
+        const response = await axios.get("http://localhost:5001/auth/status", {
           withCredentials: true,
         });
         setIsAuthenticated(response.data.isAuthenticated);
@@ -24,7 +24,7 @@ const Navbar = () => {
   const handleLogout = async () => {
     try {
       await axios.post(
-        "http://localhost:5000/logout",
+        "http://localhost:5001/logout",
         {},
         { withCredentials: true }
       );

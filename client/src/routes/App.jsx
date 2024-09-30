@@ -4,17 +4,17 @@ import Navbar from "../components/Navbar";
 
 const App = () => {
   const handleYoutubeLogin = () => {
-    window.location.href = "http://localhost:5000/auth/google";
+    window.location.href = "http://localhost:5001/auth/google";
   };
 
   const handleSpotifyLogin = () => {
-    window.location.href = "http://localhost:5000/auth/spotify";
+    window.location.href = "http://localhost:5001/auth/spotify";
   };
 
   const handleFetchPodcasts = async () => {
     try {
       const response = await axios.get(
-        "http://localhost:5000/spotify/podcasts",
+        "http://localhost:5001/spotify/podcasts",
         {
           withCredentials: true,
         }

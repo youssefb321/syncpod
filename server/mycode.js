@@ -29,14 +29,14 @@ app.get("/spotify/episodes", async (req, res) => {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
               },
-            }
+            },
+            req
           );
 
           const data = await response.json();
           const episodes = data.items.map(async (episode) => {
             let youtubeUrl = null;
             let updatedUrl = null;
-
             try {
               youtubeUrl = await searchYoutube(`${episode.name}`);
               updatedUrl = `${youtubeUrl}&t=${Math.floor(
@@ -71,19 +71,20 @@ app.get("/spotify/episodes", async (req, res) => {
       });
 
       const episodeDetails = await Promise.all(episodeDetailsPromises);
+      console.log(episodeDetails);
 
       const insertEpisode = (episode) => {
         return new Promise((resolve, reject) => {
           db.run(
-            "INSERT OR REPLACE INTO episodes (id, name, podcast_id, user_id, timestamp, youtube_url, updated_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO episodes (id, name, podcast_id, user_id, timestamp, youtube_url, updatedUrl) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [
               episode.id,
               episode.name,
               episode.podcast_id,
-              episode.user_id,
+              req.user.id,
               episode.resume_position_ms,
               episode.youtube_url,
-              episode.updated_url, // Ensure consistent property name
+              episode.updated_Url,
             ],
             (err) => {
               if (err) {

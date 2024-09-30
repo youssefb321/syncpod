@@ -11,7 +11,7 @@ const Root = () => {
     const fetchPodcasts = async () => {
       try {
         const { data: podcastData } = await axios.get(
-          "http://localhost:5000/spotify/podcasts",
+          "http://localhost:5001/spotify/podcasts",
           {
             withCredentials: true,
           }
@@ -45,7 +45,7 @@ const Root = () => {
 
     try {
       await axios.post(
-        "http://localhost:5000/spotify/podcasts",
+        "http://localhost:5001/spotify/podcasts",
         {
           podcastId: updatedPodcast.id,
           switchState: updatedPodcast.switch_state,
@@ -58,7 +58,7 @@ const Root = () => {
         }
       );
 
-      await axios.get("http://localhost:5000/spotify/episodes", {
+      await axios.get("http://localhost:5001/spotify/episodes", {
         withCredentials: true,
       });
     } catch (err) {
