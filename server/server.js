@@ -317,7 +317,10 @@ app.get("/spotify/podcasts", async (req, res) => {
       });
 
       const data = await response.json();
-      console.log(data);
+
+      if (!data.items) {
+        throw new Error("Failed to fetch podcast data. No items in response.");
+      }
 
       const podcastData = data.items.map((item) => item.show);
       podcastData.forEach((podcast) => {
@@ -327,8 +330,6 @@ app.get("/spotify/podcasts", async (req, res) => {
           (err) => {
             if (err) {
               console.error("Error inserting podcasts:", err);
-            } else {
-              console.log("Podcasts inserted!");
             }
           }
         );
@@ -338,8 +339,6 @@ app.get("/spotify/podcasts", async (req, res) => {
           (err) => {
             if (err) {
               console.error("Error inserting podcasts:", err);
-            } else {
-              console.log("Podcasts inserted!");
             }
           }
         );
@@ -359,6 +358,79 @@ app.get("/spotify/podcasts", async (req, res) => {
           }
         }
       );
+
+      const getPodcasts = () => {
+        return new Promise((resolve, reject) => {
+          db.all("SELECT id FROM podcasts", (err, rows) => {
+            if (err) {
+              return reject(err);
+            }
+            resolve(rows);
+          });
+        });
+      };
+
+      const rows = await getPodcasts();
+
+      try {
+        const epPromises = rows.map(async (row) => {
+          try {
+            const response = await fetch(
+              `https://api.spotify.com/v1/shows/${row.id}/episodes?limit=50`,
+              {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              },
+              req
+            );
+
+            const data = await response.json();
+
+            if (!data.items) {
+              throw new Error(`No episodes found for podcast ${row.id}`);
+            }
+
+            const episodes = data.items.map((episode) => ({
+              id: episode.id,
+              name: episode.name,
+              podcast_id: row.id,
+            }));
+            return { episodes };
+          } catch (err) {
+            console.error(`Failed to fetch episodes for show ${row.id}`, err);
+            throw new Error(`Failed to fetch episodes for ${row.id}`);
+          }
+        });
+
+        // Array of objects containing containing more objects of data on each episode of each show (max. 50 episodes per show)
+        const epDetails = await Promise.all(epPromises);
+
+        // Extract episodes into one array
+        const allEpisodes = epDetails.flatMap((obj) => obj.episodes);
+
+        // Dynamically build SQL query
+        const placeholders = allEpisodes.map(() => "(?, ?, ?)").join(",");
+        const sqlQuery = `INSERT OR IGNORE INTO episodes (id, name, podcast_id) VALUES ${placeholders}`;
+
+        // Flatten the array to get the values for placeholders
+        const values = allEpisodes.flatMap((episode) => [
+          episode.id,
+          episode.name,
+          episode.podcast_id,
+        ]);
+
+        // Execute query
+        db.run(sqlQuery, values, (err) => {
+          if (err) {
+            console.error("Could not insert episodes:", err);
+          } else {
+            console.log("Episodes inserted successfuly.");
+          }
+        });
+      } catch (err) {
+        console.error("Error fetching episodes:", err);
+      }
     } catch (err) {
       console.error("Error fetching Spotify podcasts:", err);
       res.status(500).json({ error: "Failed to fetch Spotify podcasts" });
@@ -374,23 +446,6 @@ app.get("/spotify/episodes", async (req, res) => {
     console.log("Access Token: ", accessToken);
 
     try {
-      const getPodcasts = () => {
-        return new Promise((resolve, reject) => {
-          db.all(
-            "SELECT id, name FROM podcasts WHERE switch_state = 'ON' AND user_id = ?",
-            [req.user.id],
-            (err, rows) => {
-              if (err) {
-                return reject(err);
-              }
-              resolve(rows);
-            }
-          );
-        });
-      };
-
-      const rows = await getPodcasts();
-
       const episodeDetailsPromises = rows.map(async (row) => {
         try {
           const response = await fetchWithRetry(
@@ -405,67 +460,13 @@ app.get("/spotify/episodes", async (req, res) => {
 
           const data = await response.json();
 
-          const getYoutubeUrl = async (episode) => {
-            const cachedUrl = await getCachedYoutubeUrl(episode.id);
-            if (cachedUrl) {
-              return cachedUrl;
-            }
-
-            let youtubeUrl = null;
-            try {
-              youtubeUrl = await searchYoutube(`${episode.name}`);
-              await cacheYoutubeUrl(episode.id, youtubeUrl);
-            } catch (err) {
-              console.error(
-                `Youtube search failed for episode ${episode.name}`,
-                err
-              );
-            }
-
-            return youtubeUrl;
-          };
-
-          const getCachedYoutubeUrl = (episodeId) => {
-            return new Promise((resolve, reject) => {
-              db.get(
-                "SELECT youtube_url FROM episodes WHERE id = ?",
-                [episodeId],
-                (err, row) => {
-                  if (err) {
-                    return reject(err);
-                  }
-                  resolve(row ? row.youtube_url : null);
-                }
-              );
-            });
-          };
-
-          const cacheYoutubeUrl = (episodeId, youtubeUrl) => {
-            return new Promise((resolve, reject) => {
-              db.run(
-                "UPDATE episodes SET youtube_url = ? WHERE id = ?",
-                [youtubeUrl, episodeId],
-                (err) => {
-                  if (err) {
-                    return reject(err);
-                  }
-                  resolve();
-                }
-              );
-            });
-          };
           const episodes = data.items.map(async (episode) => {
-            let updatedUrl = null;
-
-            getYoutubeUrl(episode);
-
             return {
               id: episode.id,
               name: episode.name,
               resume_position_ms: episode.resume_point.resume_position_ms,
               podcast_id: row.id,
               user_id: req.user.id,
-              updated_url: updatedUrl,
             };
           });
 
@@ -475,7 +476,6 @@ app.get("/spotify/episodes", async (req, res) => {
           };
         } catch (err) {
           console.error(`Failed to fetch episodes for show ${row.name}`, err);
-          throw new Error(`Failed to fetch episodes for ${row.name}`);
         }
       });
 
